@@ -171,6 +171,17 @@ module Connectable
       end
       connection
     end
+    
+    def with_join_columns(*columns)
+      source_table = proxy_association.source_reflection.class_name.constantize.table_name
+      join_class = proxy_association.chain.second.klass
+      join_table = join_class.table_name
+      
+      join_columns = columns.present? ? columns : join_class.attribute_names
+      join_columns = join_columns.map {|c| "#{join_table}.#{c.inspect}"}.join(', ')
+       
+      select("#{source_table}.tableoid::regclass as type","#{source_table}.*", join_columns, "#{join_table}.#{join_class.primary_key}")
+    end
   end
   
   def destroy
