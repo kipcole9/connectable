@@ -16,7 +16,8 @@ module Connectable
     #   has_many :images, has_many_proc, :through => :thing_images
 
     def connects_to(destination_type, options = {})
-      return unless ActiveRecord::Base.connected? && table_exists?
+      return unless ActiveRecord::Base.connected? && table_exists?      
+      require destination_type.to_s.singularize.to_s.underscore.downcase
       
       # How we refer to the collection
       collection_name = (options[:as] || destination_type).to_sym
@@ -27,10 +28,10 @@ module Connectable
       end
       
       # Just stack when defined - it'll be instantiated on demand
-      unless options.delete(:now)
-        connections[collection_name] = {:klass => self, :destination => destination_type, :options => options}
-        return
-      end
+      #unless options.delete(:now)
+      #  connections[collection_name] = {:klass => self, :destination => destination_type, :options => options}
+      #  return
+      #end
       
       # The destination class through the join
       destination_class = destination_type.to_s.classify.constantize
@@ -89,15 +90,15 @@ module Connectable
   private
     def connects_to_forward(destination_class, collection_name, join_class, join_collection, options = {})
       join_table  = join_class.table_name
-      join_class.send :belongs_to, collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :to_id
-
-      # Forward connection
+      singular_collection_name = collection_name.to_s.singularize.to_sym
+      
+      join_class.send :belongs_to, singular_collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :to_id
       has_many join_collection, :class_name => "::#{join_class.to_s}", :foreign_key => :from_id, :dependent => :destroy
       has_many collection_name, has_many_proc(join_table, collection_name), has_many_through_options(join_collection, destination_class, options)
 
       if Connectable.debug
         puts "connects_to_forward for #{self.name}"
-        puts "#{join_class}.send :belongs_to, :#{collection_name}, :class_name => '::#{destination_class.to_s}', :foreign_key => :to_id"
+        puts "#{join_class}.send :belongs_to, :#{singular_collection_name}, :class_name => '::#{destination_class.to_s}', :foreign_key => :to_id"
         puts "has_many :#{join_collection}, :class_name => '::#{join_class.to_s}', :foreign_key => :from_id, :dependent => :destroy"
         puts "has_many :#{collection_name}, has_many_proc(:#{collection_name}), #{has_many_through_options(join_collection, destination_class, options).inspect}"
         puts " "
@@ -106,14 +107,15 @@ module Connectable
 
     def connects_to_inverse(destination_class, collection_name, join_class, join_collection, options = {})
       join_table  = join_class.table_name
-      join_class.send :belongs_to, collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :from_id
+      singular_collection_name = collection_name.to_s.singularize.to_sym
       
+      join_class.send :belongs_to, singular_collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :from_id
       has_many join_collection, :class_name => "::#{join_class.to_s}", :foreign_key => :to_id, :dependent => :destroy
       has_many collection_name, has_many_proc(join_table, join_class), has_many_through_options(join_collection, destination_class, options)
     
       if Connectable.debug
         puts "connects_to_inverse for #{self.name}"
-        puts "#{join_class}.send :belongs_to, :#{collection_name}, :class_name => '::#{destination_class.to_s}', :foreign_key => :to_id"
+        puts "#{join_class}.send :belongs_to, :#{singular_collection_name}, :class_name => '::#{destination_class.to_s}', :foreign_key => :to_id"
         puts "has_many :#{join_collection}, :class_name => '::#{join_class.to_s}', :foreign_key => :from_id, :dependent => :destroy"
         puts "has_many :#{collection_name}, has_many_proc(:#{join_table}, #{join_class}), #{has_many_through_options(join_collection, destination_class, options).inspect}"
         puts " "
