@@ -16,22 +16,21 @@ module Connectable
     #   has_many :images, has_many_proc, :through => :thing_images
 
     def connects_to(destination_type, options = {})
-      return unless ActiveRecord::Base.connected? && table_exists?      
-      require destination_type.to_s.singularize.to_s.underscore.downcase
-      
+      return unless ActiveRecord::Base.connected? && table_exists? 
+
       # How we refer to the collection
       collection_name = (options[:as] || destination_type).to_sym
       
       if connection_already_defined?(collection_name)
-         raise RuntimeError, "Connection #{collection_name} already defined on #{self.name}. Was it inherited?."  if Connectable.debug
+        raise RuntimeError, "Connection #{collection_name} already defined on #{self.name}. Was it inherited?."  if Connectable.debug
         return
       end
       
       # Just stack when defined - it'll be instantiated on demand
-      #unless options.delete(:now)
-      #  connections[collection_name] = {:klass => self, :destination => destination_type, :options => options}
-      #  return
-      #end
+      unless options.delete(:now)
+       connections[collection_name] = {:klass => self, :destination => destination_type, :options => options}
+       return
+      end
       
       # The destination class through the join
       destination_class = destination_type.to_s.classify.constantize
@@ -108,11 +107,11 @@ module Connectable
     def connects_to_inverse(destination_class, collection_name, join_class, join_collection, options = {})
       join_table  = join_class.table_name
       singular_collection_name = collection_name.to_s.singularize.to_sym
-      
-      join_class.send :belongs_to, singular_collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :from_id
+  
+      join_class.send :belongs_to, singular_collection_name, :class_name => "::#{destination_class.to_s}", :foreign_key => :from_id   
       has_many join_collection, :class_name => "::#{join_class.to_s}", :foreign_key => :to_id, :dependent => :destroy
       has_many collection_name, has_many_proc(join_table, join_class), has_many_through_options(join_collection, destination_class, options)
-    
+          
       if Connectable.debug
         puts "connects_to_inverse for #{self.name}"
         puts "#{join_class}.send :belongs_to, :#{singular_collection_name}, :class_name => '::#{destination_class.to_s}', :foreign_key => :to_id"
@@ -165,7 +164,7 @@ module Connectable
 
       # raise ArgumentError, "#{target_class_name}.#{association_name}.add: #{source_class_name} object must be provided" unless source.present? && source.class.name == source_class_name
       connection = proxy_association.owner.send(connection_name).build(assoc_attributes)
-      connection.send "#{association_name}=", source
+      connection.send "#{association_name.to_s.singularize}=", source
       
       connection.save!
       if symmetric_collection[association_name] && do_symmetric
