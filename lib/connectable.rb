@@ -195,7 +195,9 @@ module Connectable
     connection_name = $1.pluralize.to_sym if method.to_s =~ /(.+?)(_ids)?(=)?$/
     if connection = connection_definition(connection_name || method)
       puts "#{self.class.name} is building connection for #{connection[:klass].name}##{connection_name || method} in method_missing " if Connectable.debug
-      connection[:klass].send :connects_to, connection[:destination], connection[:options].merge(:now => true)
+      connection[:klass].instance_eval do
+        connects_to connection[:destination], connection[:options].merge(now: true)
+      end
       send method, *args
     else
       super
